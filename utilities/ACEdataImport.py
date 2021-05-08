@@ -19,6 +19,7 @@ from utilities import chordUtil
 from utilities.chordVocab import *
 from utilities import utils
 import os, errno
+from progress.bar import Bar
 
 def createDatasetFull(name):
     with open(name, 'rb') as pickle_file:
@@ -44,64 +45,71 @@ class randomTranspose(object):
         #print(t)
         return (X, y, t)
     
-def datasetSaved(filenames,nameFold,sizeOfPart,dictFilename, args, dictChord, listChord,transf = None):
+def datasetSaved(filenames,nameFold,sizeOfPart,dictFilename, args, dictChord, listChord,transf = None, debug=False):
     listX = []
     listy = []
     part = 0
     lenSubset = 0
-    for i in sizeOfPart:
-        size = 0
-        name = i
-        size = len(dictFilename[name])
-        print(size)
-        cqt = np.load("Datas/specs_train/"+ name + ".npy")
-        lab = np.load("Datas/specs_train/"+ name + "_lab.npy")
-        randElement = np.random.randint(len(dictFilename[name]))
-        start = dictFilename[name][randElement]
-        dictFilename[name].pop(randElement)
-        #start = np.random.randint(len(cqt)-15)
-        print(name)
-        x = cqt[start:start+15]
-        y = lab[start+6]
-        listX.append(x)
-        listy.append(y)
-        if lenSubset%10000 == 9999:
-            Xfull = torch.tensor(listX)
-            yfull = torch.tensor(listy)
-            
-            try:
-                os.mkdir("datasets/" + args.dataFolder )
-            except OSError as exc:
-                if exc.errno != errno.EEXIST:
-                    raise
-                pass
-            try:
-                os.mkdir("datasets/" + args.dataFolder +'/' + nameFold)
-            except OSError as exc:
-                if exc.errno != errno.EEXIST:
-                    raise
-                pass
-            
-            sauv = open("datasets/" + args.dataFolder +'/' + nameFold +"/"+ str(part) +".pkl","wb")  
-            pickle.dump(ACETensorDataset(Xfull, yfull, dictChord, listChord, transf),sauv)
-            sauv.close()
-            part += 1
-            listX = []
-            listy = []
-        lenSubset += 1
+    #from tqdm import tqdm --> change for tqdm ?
+    #for i in tqdm(range(10000)):
+    with Bar('Processing', max=len(sizeOfPart)) as bar:
+        for i in sizeOfPart:
+            bar.next()
+            size = 0
+            name = i
+            size = len(dictFilename[name])
+            if debug :
+                print(size)
+            cqt = np.load("datas/processed_CQT_data/"+ name + ".npy")
+            lab = np.load("datas/processed_CQT_data/"+ name + "_lab.npy")
+            randElement = np.random.randint(len(dictFilename[name]))
+            start = dictFilename[name][randElement]
+            dictFilename[name].pop(randElement)
+            #start = np.random.randint(len(cqt)-15)
+            if debug :
+                print(name)
+            x = cqt[start:start+15]
+            y = lab[start+6]
+            listX.append(x)
+            listy.append(y)
+            #if lenSubset%10000 == 9999: #set a value to dertime size of "big batch"
+            if lenSubset%5000 == 4999:
+                Xfull = torch.tensor(listX)
+                yfull = torch.tensor(listy)
+                
+                try:
+                    os.mkdir("datas/" + args.dataFolder )
+                except OSError as exc:
+                    if exc.errno != errno.EEXIST:
+                        raise
+                    pass
+                try:
+                    os.mkdir("datas/" + args.dataFolder +'/' + nameFold)
+                except OSError as exc:
+                    if exc.errno != errno.EEXIST:
+                        raise
+                    pass
+                
+                sauv = open("datas/" + args.dataFolder +'/' + nameFold +"/"+ str(part) +".pkl","wb")  
+                pickle.dump(ACETensorDataset(Xfull, yfull, dictChord, listChord, transf),sauv)
+                sauv.close()
+                part += 1
+                listX = []
+                listy = []
+            lenSubset += 1
             
         
     Xfull = torch.tensor(listX)
     yfull = torch.tensor(listy)
     
     try:
-        os.mkdir("datasets/" + args.dataFolder )
+        os.mkdir("datas/" + args.dataFolder )
     except OSError as exc:
         if exc.errno != errno.EEXIST:
             raise
         pass
     
-    sauv = open("datasets/" + args.dataFolder +'/' + nameFold +"/"+str(part) +".pkl","wb")  
+    sauv = open("datas/" + args.dataFolder +'/' + nameFold +"/"+str(part) +".pkl","wb")  
     pickle.dump(ACETensorDataset(Xfull, yfull, dictChord, listChord, transf),sauv)
     sauv.close()
     

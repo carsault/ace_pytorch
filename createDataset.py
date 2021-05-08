@@ -33,7 +33,7 @@ args.dataFolder = args.alpha + "_ACE_" + str(args.random_state)
 dictChord, listChord = chordUtil.getDictChord(eval(args.alpha))
 
 # List files
-filenames = os.listdir("Datas/specs_train")
+filenames = os.listdir("datas/processed_CQT_data")
 filenames.remove(".DS_Store")
 filenames = [ x for x in filenames if "_lab.npy" not in x ]
 filenames = [ x.replace('.npy','')for x in filenames]
@@ -51,7 +51,7 @@ files_test ,files_valid = train_test_split(files_test,test_size=0.5,random_state
 dictFilenameTrain = {}
 for i in files_train:
     listOfFrame  = []
-    cqt = np.load("Datas/specs_train/"+ i + ".npy")
+    cqt = np.load("datas/processed_CQT_data/"+ i + ".npy")
     listOfFrame = list(range(len(cqt)-15))
     random.shuffle(listOfFrame)
     dictFilenameTrain[i] = listOfFrame
@@ -62,7 +62,7 @@ for i in files_train:
 dictFilenameValid = {}
 for i in files_valid:
     listOfFrame  = []
-    cqt = np.load("Datas/specs_train/"+ i + ".npy")
+    cqt = np.load("datas/processed_CQT_data/"+ i + ".npy")
     listOfFrame = list(range(len(cqt)-15))
     random.shuffle(listOfFrame)
     dictFilenameValid[i] = listOfFrame
@@ -73,7 +73,7 @@ for i in files_valid:
 dictFilenameTest = {}
 for i in files_test:
     listOfFrame  = []
-    cqt = np.load("Datas/specs_train/"+ i + ".npy")
+    cqt = np.load("datas/processed_CQT_data/"+ i + ".npy")
     listOfFrame = list(range(len(cqt)-15))
     random.shuffle(listOfFrame)
     dictFilenameTest[i] = listOfFrame
@@ -88,6 +88,9 @@ random.shuffle(sizeOfPartValid)
 random.shuffle(sizeOfPartTest)
 randTransp = ACEdataImport.randomTranspose(dictChord, listChord, args) 
 #randTransp = None
+print("Process train dataset")
 ACEdataImport.datasetSaved(files_train, "train", sizeOfPartTrain, dictFilenameTrain, args, dictChord, listChord, randTransp)
+print("Process valid dataset")
 ACEdataImport.datasetSaved(files_valid, "valid", sizeOfPartValid, dictFilenameValid, args, dictChord, listChord)
+print("Process test dataset")
 ACEdataImport.datasetSaved(files_test, "test", sizeOfPartTest, dictFilenameTest, args, dictChord, listChord)
