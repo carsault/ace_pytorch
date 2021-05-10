@@ -113,18 +113,6 @@ elif args.modelType == "cnn":
 else:
     print("Not known model")
 
-# Do a "fake" training to compute this weight_vector before to run the training (see in the training loop)
-weight_vector = [189545.,  51882., 154889.,  45571., 182577.,  42433., 196305.,  49910.,
-        187021.,  49019., 183968.,  49045., 151922.,  47066., 165120.,  42766.,
-        197705.,  46390., 197010.,  51775., 197793.,  48258., 173593.,  47643.,
-        148356.]
-
-weight_vector = [1/i for i in weight_vector]
-num = sum(weight_vector)
-weight_vector = [i/num for i in weight_vector]
-class_weights = torch.FloatTensor(weight_vector).to(args.device)
-criterion = nn.CrossEntropyLoss(class_weights)
-
 # Print model 
 print(net)
 #f.write(print(net))
@@ -134,32 +122,42 @@ print(count_parameters(net))
 
 if args.device is not "cpu":
     net.to(args.device)
+
+
+
+
+# Compute weight_vector
+weight_vector = torch.zeros(len(listChord))
+
+trainFiles = glob.glob("datas/" + args.dataFolder + "/train/*.pkl")
+part = 0
+print("Compute weight_vector")
+for testF in trainFiles:
+    dataset_train = ACEdataImport.createDatasetFull(testF)
+    training_generator = data.DataLoader(dataset_train, pin_memory = True, **params)
+    part += 1
+    #print("part : " + str(part) + " over " + str(len(trainFiles)))
+    for local_batch, local_labels, local_transp in training_generator:
+        #compute the weight vector -> do this before to train the network on a specific dataset then copy paste the obtained wieight_vector
+        for i in range(len(local_labels)):
+            weight_vector[local_labels[i]] += 1
+print(weight_vector)
+# Do a "fake" training to compute this weight_vector before to run the training (see in the training loop)
+#weight_vector = [189545.,  51882., 154889.,  45571., 182577.,  42433., 196305.,  49910.,
+#        187021.,  49019., 183968.,  49045., 151922.,  47066., 165120.,  42766.,
+#        197705.,  46390., 197010.,  51775., 197793.,  48258., 173593.,  47643.,
+#        148356.]
+
+weight_vector = [1/i for i in weight_vector]
+num = sum(weight_vector)
+weight_vector = [i/num for i in weight_vector]
+class_weights = torch.FloatTensor(weight_vector).to(args.device)
+criterion = nn.CrossEntropyLoss(class_weights)
+
     
 # choose optimizer
 optimizer = torch.optim.Adam(net.parameters(),lr=args.lr)
-#%%
-trainFiles = glob.glob("datas/" + args.dataFolder + "/train/*.pkl")
-dataset_train = ACEdataImport.createDatasetFull(trainFiles[0])
-test_generator = data.DataLoader(dataset_train, pin_memory = True, **params)
-local_batch_batchtest, local_labels_batchtest, local_transp = next(iter(test_generator))
-#%%
-len(local_batch_batchtest[0])
-#%%
-def accuracy_quick(model, data_x, data_y):
-  # calling code must set mode = 'train' or 'eval'
-  #X = torch.Tensor(data_x)
-  #Y = torch.LongTensor(data_y)
-  X = data_x
-  Y = data_y
-  oupt = model(X)
-  (max_vals, arg_maxs) = torch.max(oupt.data, dim=1) 
-  # arg_maxs is tensor of indices [0, 1, 0, 2, 1, 1 . . ]
-  num_correct = torch.sum(Y==arg_maxs)
-  acc = (num_correct * 100.0 / len(data_y))
-  #return acc.item()  # percentage based
-  return num_correct, len(data_y)
 
-weight_vector = torch.zeros(len(listChord))
 # Begin training
 for epoch in range(args.epochs):
     print('Epoch number {} '.format(epoch))
@@ -167,8 +165,9 @@ for epoch in range(args.epochs):
     train_total_loss = 0
     part = 0
     print("Training phase")
-    with Bar('Processing', max=len(trainFiles)) as bar:  
+    with Bar('Processing', max=len(trainFiles)) as bar:
         for testF in trainFiles:
+            bar.next()  
             dataset_train = ACEdataImport.createDatasetFull(testF)
             training_generator = data.DataLoader(dataset_train, pin_memory = True, **params)
             part += 1
@@ -185,10 +184,6 @@ for epoch in range(args.epochs):
                 loss.backward()
                 optimizer.step()
                 train_total_loss += loss
-                #compute the weight vector -> do this before to train the network on a specific dataset then copy paste the obtained wieight_vector
-                #for i in range(len(local_labels)):
-                #    weight_vector[local_labels[i]] += 1
-                #print(loss)
     print(train_total_loss)
     print(weight_vector)
     
@@ -198,6 +193,7 @@ for epoch in range(args.epochs):
     print("Validating phase")
     with Bar('Processing', max=len(validFiles)) as bar: 
         for testF in validFiles:
+            bar.next()
             dataset_valid = ACEdataImport.createDatasetFull(testF)
             validating_generator = data.DataLoader(dataset_valid, pin_memory = True, **params)
             for local_batch, local_labels in validating_generator:
@@ -207,7 +203,7 @@ for epoch in range(args.epochs):
                 with torch.no_grad():
                     net.eval() 
                     net.zero_grad()
-                batchcorrect, batchtotal = accuracy_quick(net, local_batch, local_labels)
+                batchcorrect, batchtotal = chordUtil.accuracy_quick(net, local_batch, local_labels)
                 correct += batchcorrect.item()
                 total += batchtotal
     accurValid = (correct * 100.0 /total)

@@ -12,6 +12,7 @@ Created on Tue Nov 21 12:38:02 2017
 
 #%%
 from utilities.chordVocab import *
+import torch
 
 def getDictChord(alpha):
     '''
@@ -126,3 +127,18 @@ def reduChord(initChord, alpha= 'a1', transp = 0):
             finalChord = root + ':' + qual
 
     return finalChord
+
+#%%
+def accuracy_quick(model, data_x, data_y):
+  # calling code must set mode = 'train' or 'eval'
+  #X = torch.Tensor(data_x)
+  #Y = torch.LongTensor(data_y)
+  X = data_x
+  Y = data_y
+  oupt = model(X)
+  (max_vals, arg_maxs) = torch.max(oupt.data, dim=1) 
+  # arg_maxs is tensor of indices [0, 1, 0, 2, 1, 1 . . ]
+  num_correct = torch.sum(Y==arg_maxs)
+  acc = (num_correct * 100.0 / len(data_y))
+  #return acc.item()  # percentage based
+  return num_correct, len(data_y)
