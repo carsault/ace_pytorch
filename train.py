@@ -157,6 +157,7 @@ criterion = nn.CrossEntropyLoss(class_weights)
     
 # choose optimizer
 optimizer = torch.optim.Adam(net.parameters(),lr=args.lr)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
 
 # Begin training
 for epoch in range(args.epochs):
@@ -207,5 +208,6 @@ for epoch in range(args.epochs):
                 correct += batchcorrect.item()
                 total += batchtotal
     accurValid = (correct * 100.0 /total)
+    scheduler.step(100-accurValid)
     print("valid acc = " + str(accurValid))
             
