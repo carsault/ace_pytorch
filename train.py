@@ -107,9 +107,9 @@ params = {'batch_size': args.batch_size,
 
 #%%
 if args.modelType == "mlp":
-    net = ACEmodels.MLP(15, 105, 50, 25, 1, 1)
+    net = ACEmodels.MLP(15, 105, 50, len(listChord), 1, 1)
 elif args.modelType == "cnn":
-    net = ACEmodels.ConvNet(args)
+    net = ACEmodels.ConvNet(args,len(listChord))
 else:
     print("Not known model")
 
@@ -148,6 +148,7 @@ print(weight_vector)
 #        197705.,  46390., 197010.,  51775., 197793.,  48258., 173593.,  47643.,
 #        148356.]
 
+weight_vector = [i + 1 for i in weight_vector] #avoid zero division
 weight_vector = [1/i for i in weight_vector]
 num = sum(weight_vector)
 weight_vector = [i/num for i in weight_vector]
@@ -158,6 +159,9 @@ criterion = nn.CrossEntropyLoss(class_weights)
 # choose optimizer
 optimizer = torch.optim.Adam(net.parameters(),lr=args.lr)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
+min_accurValid = 0
+epochs_no_improve = 0
+n_epochs_stop = 20
 
 # Begin training
 for epoch in range(args.epochs):
@@ -168,7 +172,6 @@ for epoch in range(args.epochs):
     print("Training phase")
     with Bar('Processing', max=len(trainFiles)) as bar:
         for testF in trainFiles:
-            bar.next()  
             dataset_train = ACEdataImport.createDatasetFull(testF)
             training_generator = data.DataLoader(dataset_train, pin_memory = True, **params)
             part += 1
@@ -185,8 +188,9 @@ for epoch in range(args.epochs):
                 loss.backward()
                 optimizer.step()
                 train_total_loss += loss
+            bar.next() 
     print(train_total_loss)
-    print(weight_vector)
+    #print(weight_vector)
     
     validFiles = glob.glob("datas/" + args.dataFolder + "/valid/*.pkl")
     correct = 0
@@ -194,7 +198,6 @@ for epoch in range(args.epochs):
     print("Validating phase")
     with Bar('Processing', max=len(validFiles)) as bar: 
         for testF in validFiles:
-            bar.next()
             dataset_valid = ACEdataImport.createDatasetFull(testF)
             validating_generator = data.DataLoader(dataset_valid, pin_memory = True, **params)
             for local_batch, local_labels in validating_generator:
@@ -207,7 +210,48 @@ for epoch in range(args.epochs):
                 batchcorrect, batchtotal = chordUtil.accuracy_quick(net, local_batch, local_labels)
                 correct += batchcorrect.item()
                 total += batchtotal
+            bar.next()
     accurValid = (correct * 100.0 /total)
-    scheduler.step(100-accurValid)
     print("valid acc = " + str(accurValid))
+    if accurValid > min_accurValid:
+    # Save the model
+         torch.save(net.state_dict(), args.foldName + '/' + args.modelName + '/' + args.modelName)
+         epochs_no_improve = 0
+         min_accurValid = accurValid
+
+    else:
+        epochs_no_improve += 1
+    if epoch > 5 and epochs_no_improve == n_epochs_stop:
+        print('Early stopping!' )
+        early_stop = True
+        break
+    else:
+        continue
+
+    scheduler.step(100-accurValid)
+
+# Testing Phase
+testFiles = glob.glob("datas/" + args.dataFolder + "/test/*.pkl")
+correct = 0
+total = 0
+print("Testing phase")
+with Bar('Processing', max=len(validFiles)) as bar: 
+    for testF in testFiles:
+        bar.next()
+        dataset_test = ACEdataImport.createDatasetFull(testF)
+        testing_generator = data.DataLoader(dataset_test, pin_memory = True, **params)
+        for local_batch, local_labels in testing_generator:
+            if args.modelType == "cnn":
+                local_batch, local_labels = local_batch.transpose(1,2).view(len(local_batch),1,105,15).to(args.device,non_blocking=True), local_labels.to(args.device,non_blocking=True)
+            local_batch, local_labels = local_batch.to(args.device,non_blocking=True), local_labels.to(args.device,non_blocking=True)
+            with torch.no_grad():
+                net.eval() 
+                net.zero_grad()
+            batchcorrect, batchtotal = chordUtil.accuracy_quick(net, local_batch, local_labels)
+            correct += batchcorrect.item()
+            total += batchtotal
+accurTest = (correct * 100.0 /total)
+print("test acc = " + str(accurTest))
+
+
             
