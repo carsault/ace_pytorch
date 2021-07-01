@@ -20,6 +20,7 @@ from utilities.chordVocab import *
 from utilities import utils
 import os, errno
 from progress.bar import Bar
+import copy
 
 def createDatasetFull(name):
     with open(name, 'rb') as pickle_file:
@@ -40,18 +41,19 @@ class randomTranspose(object):
         #t = np.random.randint(25)-12
         t = np.random.randint(9)-4 #maximum of 4 semi-tone of difference
         #print(chordUtil.reduChord(y,self.args.alpha, t))
-        X = utils.transpCQTFrame(X,t)
+        X = utils.transpCQTFrame(X, self.args.bin_semitone, t)
         y = torch.tensor(self.dictChord[chordUtil.reduChord(y,self.args.alpha, t)])
         #print(t)
         return (X, y, t)
     
-def datasetSaved(filenames,nameFold,sizeOfPart,dictFilename, args, dictChord, listChord,transf = None, debug=False):
+def datasetSaved(filenames,nameFold,sizeOfPart,dictFilename, args, dictChord, listChord,transf = None, debug=False, padding = True):
     listX = []
     listy = []
     part = 0
     lenSubset = 0
     #from tqdm import tqdm --> change for tqdm ?
     #for i in tqdm(range(10000)):
+    initdict = copy.deepcopy(dictFilename)
     with Bar('Processing', max=len(sizeOfPart)) as bar:
         for i in sizeOfPart:
             bar.next()
@@ -66,12 +68,29 @@ def datasetSaved(filenames,nameFold,sizeOfPart,dictFilename, args, dictChord, li
             start = dictFilename[name][randElement]
             dictFilename[name].pop(randElement)
             #start = np.random.randint(len(cqt)-15)
+            print(name)
             if debug :
                 print(name)
-            x = cqt[start:start+15]
-            y = lab[start+6]
-            listX.append(x)
-            listy.append(y)
+
+            if padding:
+                x = cqt[start:start+15]
+                y = lab[start+6]
+                listX.append(x)
+                listy.append(y)
+
+            else:
+                if start > 16 and start < (len(initdict[name])-16):
+                    x = cqt[start:start+15]
+                    y = lab[start+6]
+                    listX.append(x)
+                    listy.append(y)
+                else:
+                    print("bad padding")
+                    print("start :" + str(start))
+                    print("len dict :" + str(len(initdict[name])))
+
+
+
             #if lenSubset%10000 == 9999: #set a value to dertime size of "big batch"
             if lenSubset%5000 == 4999:
                 Xfull = torch.tensor(listX)

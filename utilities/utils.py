@@ -26,7 +26,7 @@ def str2bool(v):
     else:
         raise argparse.ArgumentTypeError('Boolean value expected.')
 
-def LoadLabelArr(labfile, dictChord,args, hop_size=512,sr=44100):
+def LoadLabelArr(labfile, dictChord,args, hop_size=512, sr=44100):
     f = open(labfile)
     line = f.readline()
     labarr = np.zeros(round(800*sr/hop_size),dtype="int32")
@@ -39,8 +39,8 @@ def LoadLabelArr(labfile, dictChord,args, hop_size=512,sr=44100):
         line = f.readline()
     return labarr[:ed]
 
-def transpCQTFrame(cqt,transp = 0):
-    transp = 2 * transp
+def transpCQTFrame(cqt, bin_per_semitone = 2,transp = 0):
+    transp = bin_per_semitone * transp
     nbFrame = len(cqt)
     nbBins = len(cqt[0])
     newcqt = torch.zeros(nbFrame, nbBins)

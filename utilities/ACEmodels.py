@@ -66,6 +66,34 @@ class ConvNet(nn.Module):
         out = self.layer5(out)
         return out
 
+# Convolutional neural network (two convolutional layers)                                                                                                                                                                                                                       
+class ConvNet_essentia(nn.Module):
+    def __init__(self, args, num_classes=25, drop_outRate = 0.6):
+        super(ConvNet_essentia, self).__init__()
+        self.layer1 = nn.Sequential(
+            nn.BatchNorm2d(1),
+            GaussianNoise(args, 0.3),
+            nn.Conv2d(1, 16, kernel_size=(25,6), stride=1, padding=1),
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
+            nn.Dropout(drop_outRate),
+            nn.MaxPool2d(kernel_size=(3,1), stride=1),
+            nn.Conv2d(16, 20, kernel_size=(27,6), stride=1, padding=0),
+            nn.BatchNorm2d(20),
+            nn.ReLU(),
+            nn.Dropout(drop_outRate),
+            nn.Conv2d(20, 24, kernel_size=(27,6), stride=1, padding=0),
+            nn.BatchNorm2d(24),
+            nn.ReLU(),
+            nn.Dropout(drop_outRate))
+        self.layer5 = nn.Sequential(nn.Linear(8448,200), nn.Linear(200,num_classes))
+        
+    def forward(self, x):
+        out = self.layer1(x)                                                                                                                                                                                                                                               
+        out = out.view(out.size(0), -1)
+        out = self.layer5(out)
+        return out
+
 
 # Convolutional neural network (two convolutional layers)
 class MLP(nn.Module):

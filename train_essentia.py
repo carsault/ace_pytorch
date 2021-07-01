@@ -40,7 +40,6 @@ parser = argparse.ArgumentParser(description='Hierarchical Latent Space')
 parser.add_argument('--dataFolder',   type=str,   default='a0_124_123456',    help='name of the data folder')
 parser.add_argument('--batch_size',      type=int,   default=200,                                help='batch size (default: 50)')
 parser.add_argument('--alpha',      type=str,   default='a0',                            help='type of alphabet')
-parser.add_argument('--bin_semitone',      type=int,   default=2,                          help='bin per semitone')
 parser.add_argument('--latent',     type=int,   default=50,                                 help='size of the latent space (default: 50)')
 parser.add_argument('--hidden',     type=int,   default=500,                                 help='size of the hidden layer (default: 500)')
 parser.add_argument('--modelType',      type=str,   default='cnn',                            help='type of model to evaluate')
@@ -60,14 +59,10 @@ print(args)
 dictChord, listChord = chordUtil.getDictChord(eval(args.alpha))
 n_categories = len(listChord)
 
-
-
 args.dataFolder = args.alpha + "_ACE_" + str(args.random_state)
 #args.dataFolder = "test"
 
 args.modelName = args.dataFolder + "_" + args.modelType
-
-
 
 # Create save folder
 try:
@@ -83,17 +78,6 @@ except OSError as exc:
     if exc.errno != errno.EEXIST:
         raise
     pass
-
-
-
-# saving dict and list
-pickle.dump(listChord, open(args.foldName + '/' + args.modelName + '/' + args.modelName + '_listChord.p', "wb"))
-with open(args.foldName + '/' + args.modelName + '/' + args.modelName + '_listChord.txt', 'w') as f:
-    for item in listChord:
-        f.write("%s\n" % item)
-pickle.dump(dictChord, open(args.foldName + '/' + args.modelName + '/' + args.modelName + '_dictChord.p', "wb"))
-
-
 
 # CUDA for PyTorch
 args.device = torch.device(args.device if torch.cuda.is_available() else "cpu")
@@ -125,7 +109,7 @@ params = {'batch_size': args.batch_size,
 if args.modelType == "mlp":
     net = ACEmodels.MLP(15, 105, 50, len(listChord), 1, 1)
 elif args.modelType == "cnn":
-    net = ACEmodels.ConvNet(args,len(listChord))
+    net = ACEmodels.ConvNet_essentia(args,len(listChord))
 else:
     print("Not known model")
 
@@ -194,7 +178,7 @@ for epoch in range(args.epochs):
             #print("part : " + str(part) + " over " + str(len(trainFiles)))
             for local_batch, local_labels, local_transp in training_generator:
                 if args.modelType == "cnn":
-                    local_batch, local_labels = local_batch.transpose(1,2).view(len(local_batch),1,105,15).to(args.device,non_blocking=True), local_labels.to(args.device,non_blocking=True)
+                    local_batch, local_labels = local_batch.transpose(1,2).view(len(local_batch),1,252,15).to(args.device,non_blocking=True), local_labels.to(args.device,non_blocking=True)
                 local_batch, local_labels = local_batch.to(args.device,non_blocking=True), local_labels.to(args.device,non_blocking=True) 
                 net.train() 
                 net.zero_grad()
@@ -218,7 +202,7 @@ for epoch in range(args.epochs):
             validating_generator = data.DataLoader(dataset_valid, pin_memory = True, **params)
             for local_batch, local_labels in validating_generator:
                 if args.modelType == "cnn":
-                    local_batch, local_labels = local_batch.transpose(1,2).view(len(local_batch),1,105,15).to(args.device,non_blocking=True), local_labels.to(args.device,non_blocking=True)
+                    local_batch, local_labels = local_batch.transpose(1,2).view(len(local_batch),1,252,15).to(args.device,non_blocking=True), local_labels.to(args.device,non_blocking=True)
                 local_batch, local_labels = local_batch.to(args.device,non_blocking=True), local_labels.to(args.device,non_blocking=True)
                 with torch.no_grad():
                     net.eval() 
@@ -236,7 +220,7 @@ for epoch in range(args.epochs):
          min_accurValid = accurValid
          # Save in C++
          # An example input you would normally provide to your model's forward() method.
-         example = torch.rand(1,1,105,15).to(args.device,non_blocking=True)
+         example = torch.rand(1,1,252,15).to(args.device,non_blocking=True)
          # Use torch.jit.trace to generate a torch.jit.ScriptModule via tracing.
          traced_script_module = torch.jit.trace(net, example)
          traced_script_module.save(args.foldName + '/' + args.modelName + '/' + args.modelName + "traced_model.pt")
@@ -265,7 +249,7 @@ with Bar('Processing', max=len(validFiles)) as bar:
         testing_generator = data.DataLoader(dataset_test, pin_memory = True, **params)
         for local_batch, local_labels in testing_generator:
             if args.modelType == "cnn":
-                local_batch, local_labels = local_batch.transpose(1,2).view(len(local_batch),1,105,15).to(args.device,non_blocking=True), local_labels.to(args.device,non_blocking=True)
+                local_batch, local_labels = local_batch.transpose(1,2).view(len(local_batch),1,252,15).to(args.device,non_blocking=True), local_labels.to(args.device,non_blocking=True)
             local_batch, local_labels = local_batch.to(args.device,non_blocking=True), local_labels.to(args.device,non_blocking=True)
             with torch.no_grad():
                 net.eval() 

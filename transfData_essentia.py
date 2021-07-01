@@ -15,6 +15,9 @@ from utilities import chordUtil
 from utilities.chordVocab import *
 #import const as C
 import os
+import essentia
+import essentia.standard
+from essentia.standard import *
 
 parser = argparse.ArgumentParser(description='ACE dataset')
 parser.add_argument('--alpha',      type=str,   default='a0', help='type of alphabet')
@@ -39,13 +42,25 @@ for audiofile in audiolist:
     print("Processing %d/%d" % (i,itemcnt))    
     wav,sr = load(audiofile,sr=sr)
     print("Sampling rate : " + str(sr))
+    #fmin = note_to_hz("A0")
     #fmin = note_to_hz("C2")
-    fmin = 65
-    #spec = np.stack([np.abs(cqt(wav,sr=C.SR,hop_length=512,n_bins=C.BIN_CNT,bins_per_octave=C.OCT_BIN,fmin=fmin*(h+1),filter_scale=2,tuning=None)).T.astype(np.float32) for h in range(C.CQT_H)])
-    spec = np.abs(cqt(wav,sr=sr,hop_length=512*4,n_bins=105,bins_per_octave=24,fmin=fmin,filter_scale=2,tuning=None)).T.astype(np.float32)
+    #print(fmin)
+    fmin = 130
+    #essensia_cqt = ConstantQ(binsPerOctave = 36, numberBins = 252, minFrequency = fmin, scale=1)
+    essensia_cqt = ConstantQ(binsPerOctave = 24, numberBins = 105, minFrequency = fmin, scale=1, threshold=0.01, zeroPhase = False)
+    spec = []
+    n_fft = int(65536/4)
+    for frame in FrameGenerator(wav, frameSize=n_fft, hopSize=512*4, startFromZero=False, lastFrameToEndOfFile = False):
+        Cstq = essensia_cqt(frame)
+        Cstq = np.abs(Cstq)
+        Cstq /= np.sqrt(n_fft).astype(np.float32)
+        spec.append(Cstq)
+    spec = np.asarray(spec)
+    print(spec[100:105])
+    #spec = np.abs(cqt(wav,sr=sr,hop_length=512*4,n_bins=105,bins_per_octave=24,fmin=fmin,filter_scale=2,tuning=None)).T.astype(np.float32)
     print("Number of frames : "+ str(len(spec)))
     print("CQT bins : " + str(len(spec[0])))
-    print(spec[100:105])
+    #print(spec[100:105])
     lab = LoadLabelArr(labelfile,dictChord,args,512*4)
     filename = audiofile.split('/')[-1].split(".")[0]
     savepath = os.path.join(path_hcqt,filename+".npy")
